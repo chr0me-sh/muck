@@ -1,6 +1,7 @@
 import parted
 import os
 import subprocess
+import re
 import glob
 
 def show_devices():
@@ -37,15 +38,34 @@ def select_device():
             return device
 
 
-def wipe_device(device):
+def wipe(device_path):
     """Recieves a device object
        Destroys all device metadata"""
-    with open(device.path, 'wb') as d:
+    with open(device_path, "wb") as d:
         d.write(bytearray(1024))
+
+def wipe_device(device):
+    partitions = glob.glob('{}[0-9]*'.format(device.path))    
+
+    for part in partitions:
+        wipe(part)
+
+    wipe(device.path)
+
+def unmount(device):
+    with open("/proc/mounts", 'r') as f:
+        for line in f:
+            m = re.match(device.path + "[0-9]", line)
+            if m:
+                print(f"Unmounting {m.group(0)}...")
+                subprocess.run(["umount", m.group(0)])
+
 
 def prep_device(device):
     """Recieves a device object.
        Wipes the device and creates a single partition."""
+
+    unmount(device)
 
     wipe_device(device)
 
@@ -63,7 +83,7 @@ def prep_device(device):
     disk.commit()
 
 
-def init_muck_disk(device):
+def ready_disk(device):
     partition_path = device.path + "1"
     subprocess.run(["mkfs.ext4", partition_path])
 
@@ -79,4 +99,5 @@ def init_muck_disk(device):
 print("Welcome to MUCK!\n")
 
 working_device = select_device()
-
+prep_device(working_device)
+ready_disk(working_device)
