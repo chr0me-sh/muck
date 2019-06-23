@@ -38,19 +38,19 @@ def select_device():
             return device
 
 
-def wipe(device_path):
+def wipe_device(device_path):
     """Recieves a device object
        Destroys all device metadata"""
     with open(device_path, "wb") as d:
         d.write(bytearray(1024))
 
-def wipe_device(device):
+def wipe(device):
     partitions = glob.glob('{}[0-9]*'.format(device.path))    
 
     for part in partitions:
-        wipe(part)
+        wipe_device(part)
 
-    wipe(device.path)
+    wipe_device(device.path)
 
 def unmount(device):
     with open("/proc/mounts", 'r') as f:
@@ -61,13 +61,13 @@ def unmount(device):
                 subprocess.run(["umount", m.group(0)])
 
 
-def prep_device(device):
+def partition(device):
     """Recieves a device object.
        Wipes the device and creates a single partition."""
 
     unmount(device)
 
-    wipe_device(device)
+    wipe(device)
 
     disk = parted.freshDisk(device, 'msdos')
     geometry = parted.Geometry(device=device, start=1, length=device.getLength() - 1)
@@ -83,21 +83,41 @@ def prep_device(device):
     disk.commit()
 
 
-def ready_disk(device):
-    partition_path = device.path + "1"
+def format(partition_path):
     subprocess.run(["mkfs.ext4", partition_path])
 
-    mount_path = "/tmp/muck/mnt"
 
+def mount(partition_path, mount_path):
     if not os.path.isdir(mount_path):
         os.makedirs(mount_path)
 
     subprocess.run(["mount", partition_path, mount_path])
 
 
+def install_syslinux(device_path, mount_dir):
+    syslinux_dir = mount_dir + "/syslinux"
+    os.mkdir(syslinux_dir) 
+
+    subprocess.run(["extlinux", "--install", syslinux_dir])
+    subprocess.run(["dd", "bs=440", "count=1", "conv=notrunc",
+                    "if=/usr/lib/syslinux/mbr/mbr.bin", "of=" + device_path])
+
+def create_muck_disk(device):
+    partition = device.path + "1"
+    mount_dir = "/tmp/muck/mnt"
+
+    format(partition)
+    mount(partition, mount_dir)
+
+    install_syslinux(device.path, mount_dir)
+
+
+
+
+
 
 print("Welcome to MUCK!\n")
 
 working_device = select_device()
-prep_device(working_device)
-ready_disk(working_device)
+partition(working_device)
+create_muck_disk(working_device)
