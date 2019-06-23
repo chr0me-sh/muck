@@ -38,12 +38,8 @@ def select_device():
 
 
 def wipe_device(device):
-    part_list = glob.glob('{}[0-9]*'.format(device.path)) 
-
-    for part in part_list:
-        with open(part, 'wb') as p:
-            p.write(bytearray(1024))
-
+    """Recieves a device object
+       Destroys all device metadata"""
     with open(device.path, 'wb') as d:
         d.write(bytearray(1024))
 
@@ -51,7 +47,7 @@ def prep_device(device):
     """Recieves a device object.
        Wipes the device and creates a single partition."""
 
-    #wipe_device(device)
+    wipe_device(device)
 
     disk = parted.freshDisk(device, 'msdos')
     geometry = parted.Geometry(device=device, start=1, length=device.getLength() - 1)
@@ -84,4 +80,3 @@ print("Welcome to MUCK!\n")
 
 working_device = select_device()
 
-prep_device(working_device)
