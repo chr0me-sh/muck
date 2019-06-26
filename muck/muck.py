@@ -3,6 +3,7 @@ import os
 import subprocess
 import re
 import glob
+import shutil
 
 def show_devices():
     """Prints a list of storage devices and some attributes."""
@@ -65,7 +66,6 @@ def partition(device):
     """Recieves a device object.
        Wipes the device and creates a single partition."""
 
-    unmount(device)
 
     wipe(device)
 
@@ -95,17 +95,20 @@ def mount(partition_path, mount_path):
 
 
 def install_syslinux(device_path, mount_dir):
-    syslinux_dir = mount_dir + "/syslinux"
+    syslinux_dir = mount_dir + "/syslinux/"
     os.mkdir(syslinux_dir) 
 
     subprocess.run(["extlinux", "--install", syslinux_dir])
     subprocess.run(["dd", "bs=440", "count=1", "conv=notrunc",
                     "if=/usr/lib/syslinux/mbr/mbr.bin", "of=" + device_path])
 
+    shutil.copyfile('/usr/lib/syslinux/memdisk', syslinux_dir + 'memdisk')
+
 def create_muck_disk(device):
     partition = device.path + "1"
     mount_dir = "/tmp/muck/mnt"
 
+    unmount(device)
     format(partition)
     mount(partition, mount_dir)
 
